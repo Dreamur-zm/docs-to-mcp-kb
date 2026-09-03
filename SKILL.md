@@ -5,12 +5,14 @@ description: Build MCP-accessible retrieval knowledge bases from open-source pro
 
 # Documentation → MCP Retrieval Knowledge Base (v2 practitioner guide)
 
-> This skill distills a complete real refactor (MuJoCo + mjlab + RSL-RL corpora:
-> Sphinx docs → IR → BM25F/dense dual channel → fused ranking → five MCP tools).
-> Every pitfall here was actually hit; every decision is backed by experiment
-> data. Deep reading: `references/pitfalls.md` (42 pitfalls), `references/decisions.md`
-> (12 ADRs), `references/templates.md` (14 method templates), `references/mcp_design.md`
-> (MCP tool-layer spec). Live code: `kb_v2/src/kbcore/` in the source project.
+> This skill distills a complete real refactor (several large open-source
+> documentation corpora: Sphinx docs → IR → BM25F/dense dual channel → fused
+> ranking → five MCP tools). Every pitfall here was actually hit; every decision
+> is backed by experiment data. Deep reading: `references/pitfalls.md`
+> (42 pitfalls), `references/decisions.md` (12 ADRs), `references/templates.md`
+> (14 method templates), `references/mcp_design.md` (MCP tool-layer spec).
+> No documentation corpus or reference implementation ships with this skill —
+> build your own following the workflow.
 
 ## Golden Rule: ask before you build
 
@@ -168,8 +170,9 @@ IR = one JSON per doc: parents[] (with children[]). Key points:
   Basis: 6-scheme comparison experiment (sum/mean/max/norm_sum/top3/wmax).
   ⚠️ Fix the measurement basis first (leaf-blocks vs full_markdown which double
   counts subtrees).
-- Reranker (qwen3-rerank): per-doc ≤4000 tokens (silent truncation), ≤500 docs
-  and `query×N+Σdocs ≤120K` tokens per request. Oversized parents degrade to
+- Reranker: hard limits are service-specific — probe yours (reference service:
+  per-doc ≤4000 tokens (silent truncation), ≤500 docs
+  and `query×N+Σdocs ≤120K` tokens per request). Oversized parents degrade to
   **per-child scoring with max** — no new granularity. Batching uses the local
   tokenizer for exact budgets.
 - **Reranker defaults OFF**: golden regression showed net negative on
@@ -210,7 +213,8 @@ Description-prompt writing rules (see references/mcp_design.md):
   rerank (~360ms), end-to-end p50.
 - **Real-usage test (the last gate)**: dispatch two long-lived subagents as
   real users of each corpus — round 1 business questions only (zero tool
-  teaching), round 2 advanced follow-ups via send_message, then an interview
+  teaching), round 2 advanced follow-ups steered into the same session by
+  message, then an interview
   (tool counts/scores/worst moment/degraded count). Verify every defect claim
   against files before acting (this round: 3 claims → 1 confirmed, 2 false);
   land exposed UX issues as "fix + description sync" pairs.
@@ -251,12 +255,12 @@ Description-prompt writing rules (see references/mcp_design.md):
 | 33 | migration semantic drift voids vectors | behavior lock: byte-identical products to accept |
 | 34 | golden substrings assumed across corpora | grep the IR to confirm substrings exist |
 | 35 | PyPI same-name traps | check the official dependency list, not the grabbed name |
-| 36 | two-round real-usage test spoiled | round 1 zero tool teaching; round 2 via send_message |
+| 36 | two-round real-usage test spoiled | round 1 zero tool teaching; round 2 same-session message |
 | 37 | subagent hallucinated defects | reproduce every claim against files |
 | 38 | kb_read_path floods giant sections | max_lines param + exact continuation footer |
 | 39 | silent zero-hit grep copy | context-aware suggestion chain, noted in description |
 | 40 | cross-corpus description leaks | per-KB examples registry; two-way leak scan to zero |
-| 41 | autodoc heavy-dependency decisions | diff against the mock list; warp ≠ warp-lang |
+| 41 | autodoc heavy-dependency decisions | diff against the mock list; watch PyPI same-name traps |
 | 42 | set -u / silent no-op replaces | ${VAR:-} + assert + distribution sanity check |
 
 ---

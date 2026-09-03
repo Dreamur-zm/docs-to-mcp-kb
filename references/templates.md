@@ -1,9 +1,9 @@
-# Method Template Index (mirrors the kb_v2 production code)
+# Method Template Index (production-proven skeletons)
 
-> Each template: responsibility, key design decisions, core code skeleton. The
-> live code lives in `kb_v2/src/kbcore/`; when adapting to a new corpus, treat
-> the production files as authoritative — this file explains WHY they are
-> written this way.
+> Each template: responsibility, key design decisions, core code skeleton.
+> They are skeletons to re-implement in your own pipeline — the design decisions
+> and invariants are the load-bearing part; this file explains WHY each piece
+> is written this way.
 
 ---
 
@@ -52,7 +52,7 @@ Profile JSON schema (shared by all types):
 
 Freeze-script three principles: read the draft, bake human decisions in as
 `D-number` entries, keep the draft for audit. **Empirical weight starting
-points** (MuJoCo measured): api-type symbols dominant (3.0), title B low (0.2);
+points** (measured on a C-API-heavy corpus): api-type symbols dominant (3.0), title B low (0.2);
 guide-type body raised (1.2); changelog uniformly low weight + downweight.
 
 ## 3. Extraction extension skeleton (kb_extract_ext.py)
@@ -213,24 +213,25 @@ Code points:
 
 ```python
 KBS = {
-  "mujoco": {"display": "MuJoCo",
-              "sphinx_kb": REPO/"sourcedocs/mujoco/doc/_build/kb",
-              "data": DATA_DIR/"mujoco", "profiles": PROFILES/"mujoco",
-              "collection": "mujoco_kb_v2",
-              "examples": {"<EX_KW>": "mjtGeom", ...}},
-  "mjlab": {...same shape...},
+  "corpus_a": {"display": "Corpus A",
+               "sphinx_kb": REPO/"sphinx-src/corpus_a/doc/_build/kb",
+               "data": DATA_DIR/"corpus_a", "profiles": PROFILES/"corpus_a",
+               "collection": "corpus_a_kb",
+               "examples": {"<EX_KW>": "geom_kind", ...}},
+  "corpus_b": {...same shape...},
 }
 def get_kb(name): ...   # validates + injects name
 ```
 
 Points:
-- TWO path bases: data/profiles are relative to `KB_V2_ROOT`; sphinx_kb is
-  relative to `REPO_ROOT` (= KB_V2_ROOT.parent). Mixing them bit us twice.
-- classify registry mirrors the shape: `_CLS = {"mujoco": fn, "mjlab": fn}`
+- TWO path bases: data/profiles are relative to the pipeline root; sphinx_kb is
+  relative to the repo root (the pipeline root's parent). Mixing them bit us twice.
+- classify registry mirrors the shape: `_CLS = {"corpus_a": fn, "corpus_b": fn}`
   with one entry point `classify(kb, docname)`.
 - Full-pipeline threading: build_ir/bm25/vectorize CLIs take `--kb`;
   Retriever(kb=...); MCP uses the `KB_NAME` env var. **Every replacement must
-  assert + run a distribution sanity check** (the mjlab-all-guide incident).
+  assert + run a distribution sanity check** (the all-guide misclassification
+  incident).
 
 ## 13. Tool-description localization (per-KB examples registry)
 
@@ -248,8 +249,8 @@ def _register(fn):
     return mcp.tool()(fn)          # decorators removed; explicit registration at the end
 ```
 
-Acceptance = **two-way leak scan**: the mujoco instance's forbidden set = mjlab
-symbols (and vice versa); zero leaks to pass. Examples must stay concrete
+Acceptance = **two-way leak scan**: the corpus-A instance's forbidden set =
+corpus-B symbols (and vice versa); zero leaks to pass. Examples must stay concrete
 (LLM steering power), but concrete values follow the deployed corpus.
 
 ## 14. Two-round real-usage test (the user's-eye acceptance gate)
@@ -257,17 +258,17 @@ symbols (and vice versa); zero leaks to pass. Examples must stay concrete
 ```
 subagent A (corpus 1) ← round-1 prompt: business questions only, ZERO tool teaching
 subagent B (corpus 2) ← same (dispatched in parallel)
-   ↓ send_message into the same session
+   ↓ steering message into the same session
 round 2 ← advanced questions (natural extension of round-1 conclusions)
-   ↓ send_message
+   ↓ steering message
 interview ← tool counts / three-axis scores / worst moment / degraded count / highlight+improvement
 ```
 
 Design red lines:
 - Round-1 prompts must **never name a tool or a call order** — spoilers make
   the description's real steering power unmeasurable
-- Round 2 must extend round 1's conclusions naturally (boundmass → mjtState;
-  first training → custom obs/rewards)
+- Round 2 must extend round 1's conclusions naturally (a physics attribute →
+  the state-flags enum; first training → custom obs/rewards)
 - The interview states "no new research needed" so it doesn't run more searches
 - Every "defect claim" in feedback gets reproduced against files first
   (measured: of 3 claims only 1 was real)

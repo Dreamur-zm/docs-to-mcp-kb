@@ -4,13 +4,16 @@
 > All decisions are experiment- or measurement-backed; when a revisit condition
 > fires, re-evaluate instead of holding the line.
 
-## ADR-1 Embedding: cloud qwen3.7-text-embedding replaces local Ollama
-- **Background**: local 0.6b held ~1G VRAM and needed residency management; user
-  mandated cloud migration (API/SDK).
-- **Alternatives**: local Ollama / DashScope v4 / qwen3.7-text-embedding.
-- **Decision**: qwen3.7-text-embedding, 1024 dims, native HTTP protocol
-  (requests, no SDK). Rationale: same semantic family (Qwen3), Code retrieval
-  +20%, batch 20, 128K-token per-text, loose RPM, ¥0.5/M (full re-embed ¥0.18).
+## ADR-1 Embedding: cloud API replaces a local model
+- **Background**: the local model held ~1G VRAM and needed residency management;
+  user mandated cloud migration (API/SDK).
+- **Alternatives**: keep the local model / another cloud embedding offering.
+- **Decision**: a cloud text-embedding model over the vendor's native HTTP
+  protocol (requests, no SDK). Rationale: materially better code-retrieval
+  quality, larger per-text token cap, generous batch/RPM limits, low unit price
+  (full re-embed cost negligible at our scale). Exact vendor, model, dimensions
+  and price are deployment choices — run the probe template first (template 1),
+  never trust docs.
 - Key measurements: instruct/text_type contract verified effective; vectors are
   unit-norm (chroma l2 equivalent to cosine).
 - Revisit when: corpus grows to the 10M-token scale, or private deployment is required.
@@ -94,8 +97,8 @@
 
 ## ADR-11 Profile v2: executable DSL, the single build-time source of truth
 - **Background**: v2's first cut ran build_ir on a hardcoded PARAMS dict (tuned
-  for mujoco); the profile's human-reviewed numbers only took effect on the
-  query side — exposed when the second corpus (mjlab) landed: the deep-read
+  for corpus A); the profile's human-reviewed numbers only took effect on the
+  query side — exposed when the second corpus (corpus B) landed: the deep-read
   decisions (guide granularity 400/120, api code weight 0.5, author stripping)
   were never consumed.
 - **Decision**: chunk_rules upgraded to an executable DSL — `parent_mode
@@ -103,7 +106,7 @@
   `promote_deep_over_chars`, `min/max_child_chars`, `code_split_max_chars`,
   `split_code_by_comments`, `entry_boundary_re`, `strip_author_tail` — build_ir
   dropped PARAMS and only reads `_params_for(kb, dtype)`.
-- Migration discipline: MuJoCo's three profiles migrated "numbers as-is";
+- Migration discipline: the first corpus's three profiles migrated "numbers as-is";
   rebuild products must match the golden-locked version **byte-identically**
   (936/2808, changelog 133) to pass; any semantic drift during migration
   (133→145→97) rolls back.
@@ -121,9 +124,10 @@
      zero.
   3. A new corpus's final acceptance = **two-round real-usage test**: round 1
      business questions only (zero tool teaching), round 2 advanced follow-ups
-     (send_message, same session), closing interview (tool counts/scores/pain
+     (steering message, same session), closing interview (tool counts/scores/pain
      points/degraded count); every defect claim verified against files.
-- Evidence: mjlab first round answered 4+4 questions at high quality (scores
+- Evidence: the second corpus's first real-usage round answered 4+4 questions
+  at high quality (scores
   8.5–9.5/10); the interview exposed 3 improvements, all landed
   (kb_read_path max_lines / grep zero-hit self-diagnosis / structure outline
   description emphasis).

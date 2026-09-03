@@ -1,7 +1,7 @@
 # MCP Tool-Layer Design Spec
 
 > The five-tool responsibility chain, description-prompt writing rules, and limits & truncation management.
-> Reference implementation: kb_v2/src/kbcore/mcp_server.py (FastMCP, stdio).
+> Implementation pattern: FastMCP + stdio; re-implement it in your own pipeline package.
 
 ---
 
@@ -19,7 +19,7 @@ The description must state the priority semantics clearly: search comes first;
 grep is the exact-literal supplement after search; read is the continuation means
 for content beyond the hit section's range.
 
-## 2. Description-prompt writing rules (aligned with the Context7 style)
+## 2. Description-prompt writing rules (aligned with mainstream MCP-server description style)
 
 **Write usage only, never the underlying implementation.** The caller does not need
 to know the fusion formula, the normalization scheme, or model names — that is "how
@@ -45,7 +45,7 @@ subagent and will nest without end.
 
 ### Bad example → good example
 
-Bad: "Fuse BM25F with weighted-normalized dense vectors, then rerank via qwen3-rerank"
+Bad: "Fuse BM25F with weighted-normalized dense vectors, then rerank via <model name>"
 Good: "weight: 0..1 balance between keyword ranking (0) and semantic ranking (1)"
 
 ## 3. Parameter design conventions
@@ -101,15 +101,15 @@ through env. One run ≈10s; after any change to the MCP layer it must be all gr
 
 ## 8. Host integration
 
-Standard mcpServers configuration (works on both DeepSeek Harness / Claude Desktop):
+Standard mcpServers configuration (works in any MCP host: Claude Desktop, Claude Code, IDE integrations, ...):
 
 ```json
 {
   "mcpServers": {
-    "mujoco-kb-v2": {
+    "my-docs-kb": {
       "command": "python3",
-      "args": ["-m", "kbcore.mcp_server"],
-      "env": {"PYTHONPATH": "<abs>/kb_v2/src"}
+      "args": ["-m", "mypkg.mcp_server"],
+      "env": {"PYTHONPATH": "<abs>/your-pipeline/src"}
     }
   }
 }
@@ -136,6 +136,6 @@ real values are injected from config.KBS[kb]["examples"] at registration time.
   zero description changes
 
 Hard-won lesson: a half-implemented placeholder mechanism (only the first line
-replaced, body examples hardcoded) is stealthier than none at all — the mjlab
+replaced, body examples hardcoded) is stealthier than none at all — the corpus-B
 instance's description once taught the model to grep a nonexistent enum. The
 bidirectional scan must be run before going live.
